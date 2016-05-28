@@ -4,5 +4,5 @@ the coffee maker, based on the fucking-coffee.rb in https://github.com/NARKOZ/ha
 ## Running
 You need python3(yes, make is needed ~~it isn't~~)
 ```bash
-make coffee
+make coffee IP=0.0.0.0 PORT=8293
 ```
