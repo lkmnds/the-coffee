@@ -16,7 +16,7 @@ HOST = 'localhost'
 CLISIZE = 3
 
 threads = []
-global_state = libcoffee.MachineState('example_brewer')
+global_state = libcoffee.MachineState('example_brewer', '123')
 
 def new_client(cli, sock):
     global global_state

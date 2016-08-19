@@ -30,7 +30,8 @@ A: HAI/n
 
 Errors:
 ```
-A: AUTH_NOPE\n -- wrong password
+A: AUTH_NOPE -- wrong password
+A: AUTH_NOAUTH -- AUTH is disabled in this server
 ```
 
 ### The AUTH2 feature

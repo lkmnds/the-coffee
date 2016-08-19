@@ -27,12 +27,17 @@ def recv_msg(sock):
 
 error_trans = {
     'AUTH_NOPE': 'Wrong Password',
+    'AUTH_NOAUTH': 'Authentication is disabled for this server',
 }
 
 class CoffeeError:
     def __init__(self, msg):
         self.s = ''
         self.msg = msg
+        self.translated = error_trans[msg]
+
+    def __repr__(self):
+        return 'CoffeeError(%s)' % self.translated
 
 class CoffeeState:
     def __init__(self, sock, init_string):
@@ -52,9 +57,10 @@ class CoffeeState:
 
     def auth_one(self, password):
         self.send("AUTH %s" % password)
-        res = recv_msg(self.sock)
+        res = self.receive()
+        print("recv : %s" % res)
         if res == 'HAI':
-            return True
+            return True, None
         else:
             return False, CoffeeError(res)
 
@@ -69,7 +75,7 @@ class CoffeeState:
         if msg == "ALLRIGHT":
             return True, ''
         else:
-            return False, msg
+            return False, 'recv: %s' % msg
 
     def exit_gracefully(self):
         self.send("EXIT")
@@ -97,21 +103,24 @@ class Order:
         self.order_id = order_id
 
     def __repr__(self):
-        return 'Order(%d,%s)' % (self.order_id, self.order_name)
+        return 'Order(%d, %s)' % (self.order_id, self.order_name)
 
 class Orders:
     def __init__(self):
         self.orders = []
-        self.last_id = 1
+        self.last_id = 0
 
     def new_order(self, order_str):
-        self.orders.append(Order(order_str, self.last_id + 1))
+        o = Order(order_str, self.last_id + 1)
+        logging.debug("New Order: %r" % o)
+        self.orders.append(o)
         self.last_id += 1
 
 class MachineState:
-    def __init__(self, name):
+    def __init__(self, name, password):
         self.orders = Orders()
         self.name = name
+        self.password = password
 
     def new_order(self, order_str):
         self.orders.new_order(order_str)
@@ -139,16 +148,46 @@ class BrewState:
             cmds = cmd.split(' ')
             if cmd == "HAI MACHINE":
                 # init data, session, etc
-                self.sessions[hash(self.sock)] = self.sock
+                self.sessions[hash(self.sock)] = {
+                    'sock': self.sock,
+                    'auth': False,
+                }
             elif cmd == "FEATURES":
                 self.send(' '.join(self.features))
-                self.allright()
-            elif cmds[0] == "TARGET":
-                order = ' '.join(cmds[1:])
-                self.ms.new_order(order)
-                self.allright()
+                # self.allright()
             elif cmd == "NAME":
                 send_msg(sock, self.name)
+            elif cmds[0] == "AUTH":
+                if "AUTH" in self.features:
+                    # make Authentication
+                    pwd = cmds[1]
+                    logging.debug("AUTH: %s" % pwd)
+                    if pwd == self.ms.password:
+                        logging.debug("Authentication: Correct")
+                        self.send("HAI")
+                    else:
+                        logging.debug("Wrong Password")
+                        self.send("AUTH_NOPE")
+                else:
+                    self.send("AUTH_NOAUTH")
+            elif cmds[0] == "TARGET":
+                if "AUTH" in self.features:
+                    # Reject if not authenticated
+                    hs = hash(self.sock)
+                    if hs not in self.sessions:
+                        self.rejected()
+                    elif not self.sessions[hs]['auth']:
+                        self.rejected()
+                    elif self.sessions[hs]['auth']:
+                        order = ' '.join(cmds[1:])
+                        self.ms.new_order(order)
+                        self.allright()
+                    else:
+                        sef.rejected()
+                else:
+                    order = ' '.join(cmds[1:])
+                    self.ms.new_order(order)
+                    self.allright()
             elif cmd == "EXIT":
                 del self.sessions[hash(self.sock)]
                 logging.debug("%d exiting" % hash(self.sock))
@@ -158,6 +197,9 @@ class BrewState:
 
     def allright(self):
         self.send("ALLRIGHT")
+
+    def rejected(self):
+        self.send("REJECTED")
 
     def __repr__(self):
         return 'BrewState(%s)' % self.features
