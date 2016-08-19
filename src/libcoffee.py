@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+import struct
+import logging
+
+PORT = 8001
+
 # helpers for TCP
 def recvall(sock, count):
     buf = b''
@@ -33,22 +38,41 @@ class CoffeeState:
     def __init__(self, sock, init_string):
         self.sock = sock
         self.acc_methods = []
+        self.name = 'None'
         self.parse_hd(init_string)
 
     def parse_hd(self, s):
-        self.acc_methods = s.split(' ')
+        sp = s.split(' ')
+        self.acc_methods = sp[:-1]
+        self.name = sp[-1]
         self.allright()
 
     def allright(self):
-        send_msg(self.sock, "ALLRIGHT")
+        self.send("ALLRIGHT")
 
     def auth_one(self, password):
-        send_msg(self.sock, "AUTH %s" % password)
+        self.send("AUTH %s" % password)
         res = recv_msg(self.sock)
         if res == 'HAI':
             return True
         else:
             return False, CoffeeError(res)
+
+    def send(self, m):
+        send_msg(self.sock, m)
+
+    def receive(self):
+        return recv_msg(self.sock)
+
+    def exit_gracefully(self):
+        self.send("EXIT")
+        if self.receive() == "ALLRIGHT":
+            return True
+        else:
+            return False
+
+    def __repr__(self):
+        return 'CoffeeState(%s, %s)' % (self.name, self.acc_methods)
 
 trans = {
     'COFFEE': 'Coffee',
@@ -74,8 +98,9 @@ class Orders:
         self.last_id += 1
 
 class MachineState:
-    def __init__(self):
+    def __init__(self, name):
         self.orders = []
+        self.name = name
 
     def new_order(self, order_str):
         self.orders.append(Order(order_str))
@@ -83,11 +108,13 @@ class MachineState:
 class BrewState:
     def __init__(self, sock, features, ms):
         self.sock = sock
+        self.ms = ms
+        self.name = ms.name
+        features.append(ms.name)
         self.features = features
         self.orders = []
         self.sessions = {}
-        self.ms = ms
-        self.parse_hd()
+        self.parse_msg()
 
     def parse_msg(self):
         s = recv_msg(self.sock)
@@ -96,23 +123,24 @@ class BrewState:
             if cmd == "HAI MACHINE":
                 # init data, session, etc
                 self.sessions[hash(self.sock)] = self.sock
-                pass
             elif cmd == "FEATURES":
                 send_msg(self.sock, ' '.join(self.features))
                 self.allright()
             elif cmds[0] == "TARGET":
                 order = ' '.join(cmds[1:])
                 self.ms.new_order(order)
+            elif cmd == "NAME":
+                send_msg(sock, self.name)
             elif cmd == "EXIT":
                 self.sessions.remove(hash(s))
+                print("%d exiting" % hash(s))
                 self.allright()
 
     def allright(self):
         send_msg(self.sock, "ALLRIGHT")
 
-    def parse_hd(self):
-        s = recv_msg(self.sock)
-        self.parse_msg()
+    def __repr__(self):
+        return 'BrewState(%s)' % self.features
 
 def cli_handshake(sock):
     send_msg(sock, "HAI MACHINE;FEATURES")
@@ -122,7 +150,7 @@ def cli_handshake(sock):
 
 def ser_handshake(sock, ms=None, features=None):
     if features is None:
-        features = ["AUTH", "COFFEE", "HOTCHOC"]
+        features = ["AUTH", "COFFEE"]
     if ms is None:
         return None
     return BrewState(sock, features, ms)
