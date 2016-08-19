@@ -1,6 +1,6 @@
 # The coffee protocol
 
-All protocol examples use A as the coffee machine and P as the ~~lazy~~ programmer
+All protocol examples use M as the coffee machine and P as the ~~lazy~~ programmer
 
 ## Handshake
 
@@ -8,30 +8,32 @@ All protocol examples use A as the coffee machine and P as the ~~lazy~~ programm
 
 ```
 P: HAI MACHINE;FEATURES
-A: AUTH COFFEE HOTCHOC
+M: AUTH COFFEE HOTCHOC
 P: ALLRIGHT
 ```
 
-### All features enabled
+### All features available
 
 ```
 P: HAI MACHINE;FEATURES
-A: MULTI AUTH AUTH2 COFFEE HOTCHOC STATS <...>
+M: MULTI AUTH AUTH2 COFFEE HOTCHOC STATS <...>
 P: ALLRIGHT
 ```
 
 ## Authentication
 
+Authentication protects the Coffee Machine against snoopers or hackers, it compares the given password with the machine's password(TODO: implement user/password system)
+
 12345 as the password:
 ```
 P: AUTH 12345
-A: HAI
+M: HAI
 ```
 
 Errors:
 ```
-A: AUTH_NOPE -- wrong password
-A: AUTH_NOAUTH -- AUTH is disabled in this server
+M: AUTH_NOPE -- wrong password
+M: AUTH_NOAUTH -- AUTH is disabled in this server
 ```
 
 ### The AUTH2 feature
@@ -41,20 +43,20 @@ AUTH2 is optional in any server. AUTH2 says that each password needs to be trans
 #### Ask for supported algorithims
 ```
 P: AUTH2 SHOW_ALGO
-A: AES_256_DH
+M: AES_256_DH
 ```
 
 #### Sending password
 ```
 P: AUTH2 PASSWORD <encrypted stuff>
-A: HAI <session token, encrypted as well>
+M: HAI <session token, encrypted as well>
 ```
 
 If logged, all communications between A and B **need** to be encrypted as well(to protect against MITM attacks, no one knows when someone is making a coffee when you want a hot chocolate)
 
 ```
 P: [AUTH2 TOKEN <token> <...message...>] -- all encrypted
-A: [response] -- still encrypted
+M: [response] -- still encrypted
 ```
 
 ## Commands
@@ -62,34 +64,34 @@ A: [response] -- still encrypted
 ### As usual, brew coffee
 ```
 P: TARGET COFFEE
-A: ST OK
+M: ST OK
 ```
 
 ### Or, if you want a hot chocolate
 ```
 P: TARGET HOTCHOCOLATE
-A: ST OK
+M: ST OK
 ```
 
 ### You can send any script to the machine(more documentation on that later)
 ```
 P: TARGET CUSTOM
-A: SEND_ME
+M: SEND_ME
 P: echo("hello");
 P: \x04END_SCRIPT\x04
-A: ST EXEC
-A: RESULT "hello"
+M: ST EXEC
+M: RESULT "hello"
 ```
 
 #### Calculations and whatnot
 
 ```
 ...
-A: SEND_ME
+M: SEND_ME
 P: echo(2+2*5);
 P: ...end header...
-A: ST EXEC
-A: RESULT "12"
+M: ST EXEC
+M: RESULT "12"
 ...
 ```
 
@@ -97,7 +99,7 @@ A: RESULT "12"
 
 ```
 P: ST ?
-A: ST MAKING_SHIT
+M: ST MAKING_SHIT
 ```
 
 ## Stats
@@ -105,5 +107,5 @@ A: ST MAKING_SHIT
 Servers can enable stats and clients can retrieve stats from the server, however, the STATS feature needs to be enabled in handshake
 ```
 P: STATS
-A: <JSON statistics>
+M: <JSON statistics>
 ```
