@@ -24,8 +24,8 @@ P: ALLRIGHT
 
 12345 as the password:
 ```
-P: AUTH 12345/n
-A: HAI/n
+P: AUTH 12345
+A: HAI
 ```
 
 Errors:
