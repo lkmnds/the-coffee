@@ -38,25 +38,22 @@ M: AUTH_NOAUTH -- AUTH is disabled in this server
 
 ### The AUTH2 feature
 
-AUTH2 is optional in any server. AUTH2 says that each password needs to be transmitted with an encryption scheme, AES is recommended:
+AUTH2 is optional. it stands for Authentication Number 2 and when it is called, all *messages* go encrypted, AES is recommended(TODO: user/password support)
 
 #### Ask for supported algorithims
 ```
 P: AUTH2 SHOW_ALGO
-M: AES_256_DH
+M: AES_256_DH [...]
 ```
 
-#### Sending password
-```
-P: AUTH2 PASSWORD <encrypted stuff>
-M: HAI <session token, encrypted as well>
-```
+#### Authenticating
+Mc stands for an encrypted message from the Coffee Machine, Pc stands for the encrypted message from the programmer as well.
 
-If logged, all communications between A and B **need** to be encrypted as well(to protect against MITM attacks, no one knows when someone is making a coffee when you want a hot chocolate)
+When authenticated, all communications between P and M *are* going to be encrypted as well(TODO: support against MITM attacks, nobody knows when you order a Hot Chocolate when it is making a Cappuccino)
 
 ```
-P: [AUTH2 TOKEN <token> <...message...>] -- all encrypted
-M: [response] -- still encrypted
+P: AUTH2 LOGIN <sha512/bcrypt(password)> <SHA512/BCRYPT>
+Mc: HAI
 ```
 
 ## Commands
@@ -69,43 +66,83 @@ M: ST OK
 
 ### Or, if you want a hot chocolate
 ```
-P: TARGET HOTCHOCOLATE
+P: TARGET HOTCHOC
 M: ST OK
 ```
 
-### You can send any script to the machine(more documentation on that later)
+### Scripting
+
+(more documentation on that in [coffee-scripting.md](coffee-scripting.md))
+
 ```
-P: TARGET CUSTOM
-M: SEND_ME
-P: echo("hello");
-P: \x04END_SCRIPT\x04
+P: TARGET SCRIPT
+M: ST RECV
+P: /x04echo Hello World/x05EXEC
 M: ST EXEC
-M: RESULT "hello"
+M: STDOUT "Hello World"
+M: STDERR ""
 ```
 
 #### Calculations and whatnot
 
 ```
 ...
-M: SEND_ME
-P: echo(2+2*5);
-P: ...end header...
+[TARGET SCRIPT]
+P: /x04mul 4,3/x05EXEC
 M: ST EXEC
-M: RESULT "12"
-...
+M: STDOUT "12"
+M: STDERR ""
 ```
 
-## Status
+## Ask the Machine's status
 
 ```
-P: ST ?
-M: ST MAKING_SHIT
+P: ST NOW
+```
+
+### Possible statuses
+```
+M: ST <STATUS> <TASK_ID>
+```
+
+Example:
+```
+M: ST WAITING_TARGET 0
+M: ST MAKING_COFFEE 21
+M: ST MAKING_HOTCHOC 5
+M: ST MAKING_SHIT 7
+```
+
+#### Check more about a status
+```
+P: ST QUERY <TASK_ID>
+```
+
+The machine sends JSON data about the status
+```javascript
+M: {
+	"name": "MAKING_COFFEE", // str
+	"id": 43, // int
+	"target_time": <unix timestamp>, // int
+	"owner": <user who sent TARGET to that>, // str
+	}
 ```
 
 ## Stats
 
-Servers can enable stats and clients can retrieve stats from the server, however, the STATS feature needs to be enabled in handshake
+Servers can enable the STATS feature and clients can retrieve statistics from the server
 ```
 P: STATS
-M: <JSON statistics>
+```
+```javascript
+M: {
+	"uptime": 10231, // uptime of server
+	"target_queue": 4, // 4 tasks in queue
+	"drinks": {
+		'COFFEE': 21,
+		'HOTCHOC': 3,
+		...
+	},
+	...
+}
 ```
