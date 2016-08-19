@@ -73,12 +73,20 @@ class Orders:
         self.orders.append(Order(order_str, self.last_id + 1))
         self.last_id += 1
 
-class BrewState(object):
-    def __init__(self, sock, features):
+class MachineState:
+    def __init__(self):
+        self.orders = []
+
+    def new_order(self, order_str):
+        self.orders.append(Order(order_str))
+
+class BrewState:
+    def __init__(self, sock, features, ms):
         self.sock = sock
         self.features = features
         self.orders = []
         self.sessions = {}
+        self.ms = ms
         self.parse_hd()
 
     def parse_msg(self):
@@ -94,7 +102,7 @@ class BrewState(object):
                 self.allright()
             elif cmds[0] == "TARGET":
                 order = ' '.join(cmds[1:])
-                self.orders.append(Order(order))
+                self.ms.new_order(order)
             elif cmd == "EXIT":
                 self.sessions.remove(hash(s))
                 self.allright()
@@ -112,7 +120,9 @@ def cli_handshake(sock):
     send_msg(sock, "ALLRIGHT")
     return cs
 
-def ser_handshake(sock, features=None):
+def ser_handshake(sock, ms=None, features=None):
     if features is None:
         features = ["AUTH", "COFFEE", "HOTCHOC"]
-    return BrewState(sock, features)
+    if ms is None:
+        return None
+    return BrewState(sock, features, ms)
