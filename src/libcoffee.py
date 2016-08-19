@@ -66,10 +66,11 @@ class CoffeeState:
 
     def exit_gracefully(self):
         self.send("EXIT")
-        if self.receive() == "ALLRIGHT":
-            return True
+        msg = self.receive()
+        if msg == "ALLRIGHT":
+            return True, ''
         else:
-            return False
+            return False, msg
 
     def __repr__(self):
         return 'CoffeeState(%s, %s)' % (self.name, self.acc_methods)
@@ -116,6 +117,12 @@ class BrewState:
         self.sessions = {}
         self.parse_msg()
 
+    def send(self, m):
+        send_msg(self.sock, m)
+
+    def receive(self):
+        return recv_msg(self.sock)
+
     def parse_msg(self):
         s = recv_msg(self.sock)
         for cmd in s.split(';'):
@@ -124,7 +131,7 @@ class BrewState:
                 # init data, session, etc
                 self.sessions[hash(self.sock)] = self.sock
             elif cmd == "FEATURES":
-                send_msg(self.sock, ' '.join(self.features))
+                self.send(' '.join(self.features))
                 self.allright()
             elif cmds[0] == "TARGET":
                 order = ' '.join(cmds[1:])
@@ -133,11 +140,11 @@ class BrewState:
                 send_msg(sock, self.name)
             elif cmd == "EXIT":
                 self.sessions.remove(hash(s))
-                print("%d exiting" % hash(s))
+                logging.debug("%d exiting" % hash(s))
                 self.allright()
 
     def allright(self):
-        send_msg(self.sock, "ALLRIGHT")
+        self.send("ALLRIGHT")
 
     def __repr__(self):
         return 'BrewState(%s)' % self.features
