@@ -23,6 +23,8 @@ def new_client(cli, sock):
     logging.debug("New thread")
 
     bs = libcoffee.ser_handshake(sock, global_state)
+    while bs.parse_msg():
+        pass
 
     logging.debug("Exiting thread")
 

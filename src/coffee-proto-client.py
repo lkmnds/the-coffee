@@ -18,6 +18,11 @@ def main():
 
     cs = libcoffee.cli_handshake(s)
     print(cs)
+    ok, err = cs.target("COFFEE")
+    if not ok:
+        print("error: %s" % err)
+    else:
+        print("got target COFFEE")
     ok, err = cs.exit_gracefully()
     if ok:
         print("Exited gracefully")

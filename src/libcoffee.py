@@ -64,13 +64,23 @@ class CoffeeState:
     def receive(self):
         return recv_msg(self.sock)
 
-    def exit_gracefully(self):
-        self.send("EXIT")
+    def recv_allright(self):
         msg = self.receive()
         if msg == "ALLRIGHT":
             return True, ''
         else:
             return False, msg
+
+    def exit_gracefully(self):
+        self.send("EXIT")
+        return self.recv_allright()
+
+    def target(self, target_name):
+        if target_name in self.acc_methods:
+            self.send("TARGET %s" % target_name)
+            return self.recv_allright()
+        else:
+            return False, 'Method doesn\'t exist'
 
     def __repr__(self):
         return 'CoffeeState(%s, %s)' % (self.name, self.acc_methods)
@@ -94,17 +104,17 @@ class Orders:
         self.orders = []
         self.last_id = 1
 
-    def new_order(order_str):
+    def new_order(self, order_str):
         self.orders.append(Order(order_str, self.last_id + 1))
         self.last_id += 1
 
 class MachineState:
     def __init__(self, name):
-        self.orders = []
+        self.orders = Orders()
         self.name = name
 
     def new_order(self, order_str):
-        self.orders.append(Order(order_str))
+        self.orders.new_order(order_str)
 
 class BrewState:
     def __init__(self, sock, features, ms):
@@ -136,12 +146,15 @@ class BrewState:
             elif cmds[0] == "TARGET":
                 order = ' '.join(cmds[1:])
                 self.ms.new_order(order)
+                self.allright()
             elif cmd == "NAME":
                 send_msg(sock, self.name)
             elif cmd == "EXIT":
-                self.sessions.remove(hash(s))
-                logging.debug("%d exiting" % hash(s))
+                del self.sessions[hash(self.sock)]
+                logging.debug("%d exiting" % hash(self.sock))
                 self.allright()
+                return False
+        return True
 
     def allright(self):
         self.send("ALLRIGHT")
