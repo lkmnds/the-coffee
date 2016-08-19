@@ -174,16 +174,15 @@ class BrewState:
                 if "AUTH" in self.features:
                     # Reject if not authenticated
                     hs = hash(self.sock)
-                    if hs not in self.sessions:
-                        self.rejected()
-                    elif not self.sessions[hs]['auth']:
+                    if (hs not in self.sessions) or \
+                        (not self.sessions[hs]['auth']):
                         self.rejected()
                     elif self.sessions[hs]['auth']:
                         order = ' '.join(cmds[1:])
                         self.ms.new_order(order)
                         self.allright()
                     else:
-                        sef.rejected()
+                        self.send("REJC:AUTH:else")
                 else:
                     order = ' '.join(cmds[1:])
                     self.ms.new_order(order)
