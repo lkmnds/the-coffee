@@ -164,9 +164,11 @@ class BrewState:
                     logging.debug("AUTH: %s" % pwd)
                     if pwd == self.ms.password:
                         logging.debug("Authentication: Correct")
+                        self.sessions[hash(self.sock)]['auth'] = True
                         self.send("HAI")
                     else:
                         logging.debug("Wrong Password")
+                        self.sessions[hash(self.sock)]['auth'] = False
                         self.send("AUTH_NOPE")
                 else:
                     self.send("AUTH_NOAUTH")
