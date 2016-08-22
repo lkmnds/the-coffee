@@ -2,6 +2,7 @@
 
 import struct
 import logging
+import hashlib
 
 PORT = 8001
 
@@ -24,6 +25,24 @@ def recv_msg(sock):
     lengthbuf = recvall(sock, 4)
     length, = struct.unpack('!I', lengthbuf)
     return recvall(sock, length).decode('utf-8')
+
+# http://security.stackexchange.com/a/83671
+def constant_compare(val1, val2):
+    """
+    Returns True if the two strings are equal, False otherwise.
+
+    The time taken is independent of the number of characters that match.
+
+    For the sake of simplicity, this function executes in constant time only
+    when the two strings have the same length. It short-circuits when they
+    have different lengths.
+    """
+    if len(val1) != len(val2):
+        return False
+    result = 0
+    for x, y in zip(val1, val2):
+        result |= ord(x) ^ ord(y)
+    return result == 0
 
 error_trans = {
     'AUTH_NOPE': 'Wrong Password',
@@ -56,7 +75,7 @@ class CoffeeState:
         self.send("ALLRIGHT")
 
     def auth_one(self, password):
-        self.send("AUTH %s" % password)
+        self.send("AUTH %s" % hashlib.sha512(password.encode('utf-8')).hexdigest())
         res = self.receive()
         print("recv : %s" % res)
         if res == 'HAI':
@@ -161,8 +180,9 @@ class BrewState:
                 if "AUTH" in self.features:
                     # make Authentication
                     pwd = cmds[1]
+                    hs = hashlib.sha512(self.ms.password.encode('utf-8')).hexdigest()
                     logging.debug("AUTH: %s" % pwd)
-                    if pwd == self.ms.password:
+                    if constant_compare(pwd, hs):
                         logging.debug("Authentication: Correct")
                         self.sessions[hash(self.sock)]['auth'] = True
                         self.send("HAI")
