@@ -1,30 +1,30 @@
 # The coffee protocol
 
-All protocol examples use A as the coffee machine and B as the ~~lazy~~ programmer
+All protocol examples use A as the coffee machine and P as the ~~lazy~~ programmer
 
 ## Handshake
 
 ### As a basic implementation:
 
 ```
-B: HAI MACHINE;FEATURES\n
+P: HAI MACHINE;FEATURES\n
 A: AUTH COFFEE HOTCHOC\n
-B: ALLRIGHT\n
+P: ALLRIGHT\n
 ```
 
 ### All features enabled
 
 ```
-B: HAI MACHINE;FEATURES\n
+P: HAI MACHINE;FEATURES\n
 A: MULTI AUTH AUTH2 COFFEE HOTCHOC STATS <...>\n
-B: ALLRIGHT\n
+P: ALLRIGHT\n
 ```
 
 ## Authentication
 
 12345 as the password:
 ```
-B: AUTH 12345/n
+P: AUTH 12345/n
 A: HAI/n
 ```
 
@@ -40,20 +40,20 @@ AUTH2 is optional in any server. AUTH2 says that each password needs to be trans
 
 #### Ask for supported algorithims
 ```
-B: AUTH2 SHOW_ALGO\n
+P: AUTH2 SHOW_ALGO\n
 A: AES_256_DH\n
 ```
 
 #### Sending password
 ```
-B: AUTH2 PASSWORD <encrypted stuff>\n
+P: AUTH2 PASSWORD <encrypted stuff>\n
 A: HAI <session token, encrypted as well>\n
 ```
 
 If logged, all communications between A and B **need** to be encrypted as well(to protect against MITM attacks, no one knows when someone is making a coffee when you want a hot chocolate)
 
 ```
-B: [AUTH2 TOKEN <token> <...message...>] -- all encrypted
+P: [AUTH2 TOKEN <token> <...message...>] -- all encrypted
 A: [response] -- still encrypted
 ```
 
@@ -61,22 +61,22 @@ A: [response] -- still encrypted
 
 ### As usual, brew coffee
 ```
-B: TARGET COFFEE\n
+P: TARGET COFFEE\n
 A: ST OK\n
 ```
 
 ### Or, if you want a hot chocolate
 ```
-B: TARGET HOTCHOCOLATE\n
+P: TARGET HOTCHOCOLATE\n
 A: ST OK\n
 ```
 
 ### You can send any script to the machine(more documentation on that later)
 ```
-B: TARGET CUSTOM\n
+P: TARGET CUSTOM\n
 A: SEND_ME\n
-B: echo("hello");
-B: \x04END_SCRIPT\x04
+P: echo("hello");
+P: \x04END_SCRIPT\x04
 A: ST EXEC\n
 A: RESULT "hello"\n
 ```
@@ -86,8 +86,8 @@ A: RESULT "hello"\n
 ```
 ...
 A: SEND_ME\n
-B: echo(2+2*5);
-B: ...end header...
+P: echo(2+2*5);
+P: ...end header...
 A: ST EXEC\n
 A: RESULT "12"\n
 ...
@@ -96,7 +96,7 @@ A: RESULT "12"\n
 ## Status
 
 ```
-B: ST ?\n
+P: ST ?\n
 A: ST MAKING_SHIT\n
 ```
 
@@ -104,6 +104,6 @@ A: ST MAKING_SHIT\n
 
 Servers can enable stats and clients can retrieve stats from the server, however, the STATS feature needs to be enabled in handshake
 ```
-B: STATS\n
+P: STATS\n
 A: <JSON statistics>\n
 ```
