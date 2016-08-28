@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
 
-class CoffeeState:
-    def __init__(self, sock, init_string):
-        self.socket = sock
-        self.acc_methods = []
-        self.parse_hd(init_string)
-
-    def parse_hd(self, s):
-        self.acc_methods = s.split(' ')
-
 # helpers for TCP
 def recvall(sock, count):
     buf = b''
@@ -29,11 +20,32 @@ def recv_msg(sock):
     length, = struct.unpack('!I', lengthbuf)
     return recvall(sock, length)
 
-def handshake(sock):
-    send_msg(sock, "HAI MACHINE ; FEATURES\n")
+class CoffeeState:
+    def __init__(self, sock, init_string):
+        self.socket = sock
+        self.acc_methods = []
+        self.parse_hd(init_string)
+
+    def parse_hd(self, s):
+        self.acc_methods = s.split(' ')
+
+class BrewState(object):
+    def __init__(self, sock):
+        self.sock = sock
+        self.parse_hd()
+
+    def parse_hd(self):
+        recv_msg(self.sock)
+
+def cli_handshake(sock):
+    send_msg(sock, "HAI MACHINE;FEATURES\n")
     cs = CoffeeState(sock, recv_msg(sock))
     send_msg(sock, "ALLRIGHT\n")
     return cs
+
+def ser_handshake(sock):
+    bs = BrewState(sock)
+    return bs
 
 def auth(cs, password):
     send_msg(cs.sock, "AUTH %s\n" % password)

@@ -7,7 +7,7 @@ All protocol examples use A as the coffee machine and B as the ~~lazy~~ programm
 ### As a basic implementation:
 
 ```
-B: HAI MACHINE; FEATURES\n
+B: HAI MACHINE;FEATURES\n
 A: AUTH COFFEE HOTCHOC\n
 B: ALLRIGHT\n
 ```
@@ -15,7 +15,7 @@ B: ALLRIGHT\n
 ### All features enabled
 
 ```
-B: HAI MACHINE; FEATURES\n
+B: HAI MACHINE;FEATURES\n
 A: MULTI AUTH AUTH2 COFFEE HOTCHOC STATS <...>\n
 B: ALLRIGHT\n
 ```
