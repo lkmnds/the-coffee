@@ -30,8 +30,7 @@ A: HAI/n
 
 Errors:
 ```
-A: NOPE\n -- wrong password
-A: NONO\n -- maximum amount of users already
+A: AUTH_NOPE\n -- wrong password
 ```
 
 ### The AUTH2 feature

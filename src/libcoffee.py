@@ -20,14 +20,35 @@ def recv_msg(sock):
     length, = struct.unpack('!I', lengthbuf)
     return recvall(sock, length).decode('utf-8')
 
+error_trans = {
+    'AUTH_NOPE': 'Wrong Password',
+}
+
+class CoffeeError:
+    def __init__(self, msg):
+        self.s = ''
+        self.msg = msg
+
 class CoffeeState:
     def __init__(self, sock, init_string):
-        self.socket = sock
+        self.sock = sock
         self.acc_methods = []
         self.parse_hd(init_string)
 
     def parse_hd(self, s):
         self.acc_methods = s.split(' ')
+        self.allright()
+
+    def allright(self):
+        send_msg(self.sock, "ALLRIGHT")
+
+    def auth_one(self, password):
+        send_msg(self.sock, "AUTH %s" % password)
+        res = recv_msg(self.sock)
+        if res == 'HAI':
+            return True
+        else:
+            return False, CoffeeError(res)
 
 trans = {
     'COFFEE': 'Coffee',
@@ -57,43 +78,41 @@ class BrewState(object):
         self.sock = sock
         self.features = features
         self.orders = []
+        self.sessions = {}
         self.parse_hd()
 
     def parse_msg(self):
         s = recv_msg(self.sock)
-        if s[-1] == '\n':
-            s[-1] == ''
         for cmd in s.split(';'):
-            cmds = s.split(' ')
+            cmds = cmd.split(' ')
             if cmd == "HAI MACHINE":
                 # init data, session, etc
+                self.sessions[hash(self.sock)] = self.sock
                 pass
             elif cmd == "FEATURES":
-                send_msg(self.sock, ' '.join(self.features)+'\n')
+                send_msg(self.sock, ' '.join(self.features))
                 self.allright()
             elif cmds[0] == "TARGET":
                 order = ' '.join(cmds[1:])
                 self.orders.append(Order(order))
+            elif cmd == "EXIT":
+                self.sessions.remove(hash(s))
+                self.allright()
 
     def allright(self):
-        send_msg(self.sock, "ALLRIGHT\n")
+        send_msg(self.sock, "ALLRIGHT")
 
     def parse_hd(self):
         s = recv_msg(self.sock)
         self.parse_msg()
 
 def cli_handshake(sock):
-    send_msg(sock, "HAI MACHINE;FEATURES\n")
+    send_msg(sock, "HAI MACHINE;FEATURES")
     cs = CoffeeState(sock, recv_msg(sock))
-    send_msg(sock, "ALLRIGHT\n")
+    send_msg(sock, "ALLRIGHT")
     return cs
 
-def ser_handshake(sock, features):
-    bs = BrewState(sock, features)
-    return bs
-
-def auth(cs, password):
-    send_msg(cs.sock, "AUTH %s\n" % password)
-
-def auth2(cs, password):
-    return
+def ser_handshake(sock, features=None):
+    if features is None:
+        features = ["AUTH", "COFFEE", "HOTCHOC"]
+    return BrewState(sock, features)
