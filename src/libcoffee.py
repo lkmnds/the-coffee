@@ -30,12 +30,29 @@ class CoffeeState:
         self.acc_methods = s.split(' ')
 
 class BrewState(object):
-    def __init__(self, sock):
+    def __init__(self, sock, features):
         self.sock = sock
+        self.features = features
         self.parse_hd()
 
+    def parse_msg(self):
+        s = recv_msg(self.sock)
+        if s[-1] == '\n':
+            s[-1] == ''
+        for cmd in s.split(';'):
+            if cmd == "HAI MACHINE":
+                # init data, session, etc
+                pass
+            elif cmd == "FEATURES":
+                send_msg(self.sock, ' '.join(self.features)+'\n')
+                self.allright()
+
+    def allright(self):
+        send_msg(self.sock, "ALLRIGHT\n")
+
     def parse_hd(self):
-        recv_msg(self.sock)
+        s = recv_msg(self.sock)
+        self.parse_msg()
 
 def cli_handshake(sock):
     send_msg(sock, "HAI MACHINE;FEATURES\n")
@@ -43,8 +60,8 @@ def cli_handshake(sock):
     send_msg(sock, "ALLRIGHT\n")
     return cs
 
-def ser_handshake(sock):
-    bs = BrewState(sock)
+def ser_handshake(sock, features):
+    bs = BrewState(sock, features)
     return bs
 
 def auth(cs, password):
