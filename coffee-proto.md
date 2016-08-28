@@ -107,4 +107,3 @@ Servers can enable stats and clients can retrieve stats from the server, however
 B: STATS\n
 A: <JSON statistics>\n
 ```
-

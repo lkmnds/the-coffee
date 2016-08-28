@@ -21,7 +21,7 @@ def main():
     coffee_state = libcoffee.handshake(s)
 
     passwd = input("password: ")
-    ok, err = libcoffee.auth2(coffee_state, s, passwd)
+    ok, err = libcoffee.auth2(coffee_state, passwd)
     if not ok:
         print("error happened: %s" % (err,))
 
