@@ -10,18 +10,17 @@ args = sys.argv
 
 def main():
     COFFEE_IP = '0.0.0.0'
-    COFFEE_PORT = 80
-    if len(args) == 3:
+
+    if len(args) >= 2:
         COFFEE_IP = args[1]
-        COFFEE_PORT = int(args[2])
 
     s = socket.socket()
-    s.connect((COFFEE_IP, COFFEE_PORT))
+    s.connect((COFFEE_IP, libcoffee.PORT))
 
-    coffee_state = libcoffee.handshake(s)
+    coffee_state = libcoffee.cli_handshake(s)
 
     passwd = input("password: ")
-    ok, err = libcoffee.auth2(coffee_state, passwd)
+    ok, err = coffee_state.auth2(passwd)
     if not ok:
         print("error happened: %s" % (err,))
 
