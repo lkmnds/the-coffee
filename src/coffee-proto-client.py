@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.DEBUG,
 VERSION = '0.0.1'
 HOST = 'localhost'
 
-cs = libcoffee.ClientState(id='someone')
+cs = libcoffee.ClientState(name='ExampleClient')
 
 def main():
     print("coffee client v%s" % VERSION)

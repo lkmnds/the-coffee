@@ -46,6 +46,7 @@ OP_PING = 12
 OP_PING_ACK = 13
 
 OP_WRONG_DATA = 20
+OP_CLOSE = 30
 
 def send_op(sock, op, data):
     payload = {'op': op}
@@ -115,49 +116,82 @@ class Handshaker:
             'time_taken': delta
         }
 
+class ClientConnection:
+    def __init__(self, conn_id, sock):
+        self.id = conn_id
+        self.sock = sock
+
+    def handshake(self):
+        hello_timestamp = time.time()
+
+        # send HELLO
+        send_op(self.sock, OP_HELLO, {
+            'id': self.id,
+            '_timestamp': hello_timestamp
+        })
+
+        # wait for ACK
+        data = recv_op(self.sock, OP_HELLO_ACK)
+        delta = (data['_timestamp'] - hello_timestamp)
+
+        logger.info("[handshake:%s] HELLO_ACK, time taken : %.2fms", \
+            self.id, delta * 1000)
+
+        return delta
+
+    def recv(self):
+        time.sleep(1)
+        return True
+
 class MachineState:
     def __init__(self, **kwargs):
         name = kwargs.get('name')
         default_user = kwargs.get('default_user', (None, None))
-        self.connections = {}
+        self.sockjets = {}
+
+    def new_id(self):
+        tries = 0
+        new_id = str(uuid.uuid4().fields[-1])[:5]
+        while new_id in self.connections:
+            if tries > 5: return None
+            new_id = str(uuid.uuid4().fields[-1])[:5]
+            tries += 1
+
+        return new_id
 
     def new_client(self, sock):
-        conn_id = 'test'
-        conn = Connection(sock, conn_id)
-        self.connections[conn_id] = conn
+        conn_id = self.new_id()
 
-        while conn.get_message():
+        cc = ClientConnection(conn_id, sock)
+        self.connections[conn_id] = cc
+
+        # handshake + main loop
+        cc.handshake()
+
+        while cc.recv():
             pass
-
-    def get_conn(self, connection_id):
-        return self.connections.get(connection_id)
-
-    def close_conn(self, conn_id):
-        conn = self.get_conn(connection_id)
-        conn.close_conn()
 
 class ClientState:
     def __init__(self, **kwargs):
-        self.id = kwargs.get('id', 'nothing')
+        self.name = kwargs.get('name')
+        self.sock = None
 
     def connect(self, ip):
-        s = socket.socket()
-        s.connect((ip, PORT))
+        self.sock = socket.socket()
+        self.sock.connect((HOST, libcoffee.PORT))
+        self.do_handshake(self)
 
-class Connection(Handshaker):
-    def __init__(self, sock, _id):
-        Handshaker.__init__(self, _id, sock)
-        self.state = {}
+    def do_handshake(self):
+        # first, wait for HELLO
+        data = recv_op(self.sock, OP_HELLO)
+        if data['op'] == OP_HELLO:
+            logger.info("[handshake:%s] HELLO payload: %.2f", \
+                self.id, data['_timestamp'])
 
-    def get_message(self):
-        payload = recv_op(self.sock)
-        print(payload)
+        # send HELLO_ACK
+        send_op(self.sock, OP_HELLO_ACK, {
+            'id': self.id,
+            '_timestamp': time.time(),
+        })
 
-        # custom function
-        if hasattr(self, 'do_payload'):
-            self.do_payload(payload)
-
-def connect(ip):
-    cs = ClientState(ip)
-    cs.do_cli_handshake()
-    return cs
+        return time.time() - data['_timestamp']
