@@ -42,7 +42,12 @@ def main():
             threads.append(t)
             t.start()
     except KeyboardInterrupt:
-        print("exit")
+        print("[server] Exiting")
+
+        for client_id in machine.clients:
+            client = machine.clients[client_id]
+            client.close()
+
         s.close()
         return
 

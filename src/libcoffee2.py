@@ -52,7 +52,10 @@ OP_CLOSE = 30
 def send_op(sock, op, data):
     payload = {'op': op}
     payload = {**payload, **data}
-    print('send', payload)
+
+    if '_timestamp' not in payload:
+        payload['_timestamp'] = time.time()
+
     return send_json(sock, payload)
 
 def recv_json(sock):
@@ -60,7 +63,6 @@ def recv_json(sock):
 
 def recv_op(sock, op=None):
     data = recv_json(sock)
-    print('recv', data)
     if op is not None and data['op'] != op:
         send_op(sock, OP_WRONG_DATA, {
             'expected': op,
@@ -104,13 +106,33 @@ class ClientConnection:
         return delta
 
     def recv(self):
+        data = recv_op(self.sock)
+
+        if data['op'] == OP_CLOSE:
+            logger.info("[recv:%s] Closing", self.id)
+            send_op(self.sock, OP_CLOSE, {})
+            self.sock.close()
+            return False
+        elif data['op'] == OP_IDENTIFY:
+            pass
+
         time.sleep(1)
         return True
+
+    def close(self):
+        logger.info("[client:%s] closing", self.id)
+        send_op(self.sock, OP_CLOSE, {})
+        self.sock.close()
 
 class MachineState:
     def __init__(self, **kwargs):
         name = kwargs.get('name')
-        default_user = kwargs.get('default_user', (None, None))
+        default_user = kwargs.get('default_user')
+
+        self.auth_required = True
+        if default_user is None:
+            self.auth_required = False
+
         self.clients = {}
 
     def new_id(self):
@@ -163,3 +185,11 @@ class ClientState:
         })
 
         return time.time() - data['_timestamp']
+
+    def close(self):
+        logger.info("[client:%s] closing", self.id)
+
+        send_op(self.sock, OP_CLOSE, {})
+        recv_op(self.sock, OP_CLOSE)
+
+        self.sock.close()
