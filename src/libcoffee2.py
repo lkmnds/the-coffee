@@ -3,6 +3,7 @@
 import time
 import socket
 import json
+import uuid
 
 import struct
 import logging
@@ -51,6 +52,7 @@ OP_CLOSE = 30
 def send_op(sock, op, data):
     payload = {'op': op}
     payload = {**payload, **data}
+    print('send', payload)
     return send_json(sock, payload)
 
 def recv_json(sock):
@@ -58,11 +60,14 @@ def recv_json(sock):
 
 def recv_op(sock, op=None):
     data = recv_json(sock)
+    print('recv', data)
     if op is not None and data['op'] != op:
         send_op(sock, OP_WRONG_DATA, {
             'expected': op,
             'received': data['op']
         })
+        return None
+    return data
 
 # Modification of http://security.stackexchange.com/a/83671
 def constant_compare(val1, val2):
@@ -74,47 +79,6 @@ def constant_compare(val1, val2):
     return result == 0
 
 logger = logging.getLogger('coffee')
-
-class Handshaker:
-    def __init__(self, _id, sock):
-        self.sock = sock
-        self.id = _id
-
-    def hs_client(self):
-        # first, wait for HELLO
-        data = recv_op(self.sock, OP_HELLO)
-        if data['op'] == OP_HELLO:
-            logger.info("[handshake:%s] HELLO payload: %.2f", \
-                self.id, data['_timestamp'])
-
-        # send HELLO_ACK
-        send_op(self.sock, OP_HELLO_ACK, {
-            'id': self.id,
-            '_timestamp': time.time(),
-        })
-
-        return {
-            'time_taken': time.time() - data['_timestamp']
-        }
-
-    def hs_server(self):
-        hello_timestamp = time.time()
-        # send HELLO
-        send_op(self.sock, OP_HELLO, {
-            'id': self.id,
-            '_timestamp': hello_timestamp
-        })
-
-        # wait for ACK
-        data = recv_op(self.sock, OP_HELLO_ACK)
-
-        delta = (data['_timestamp'] - hello_timestamp) * 1000
-        logger.info("[handshake:%s] HELLO_ACK, time taken : %.2fms", \
-            self.id, delta)
-
-        return {
-            'time_taken': delta
-        }
 
 class ClientConnection:
     def __init__(self, conn_id, sock):
@@ -147,12 +111,12 @@ class MachineState:
     def __init__(self, **kwargs):
         name = kwargs.get('name')
         default_user = kwargs.get('default_user', (None, None))
-        self.sockjets = {}
+        self.clients = {}
 
     def new_id(self):
         tries = 0
         new_id = str(uuid.uuid4().fields[-1])[:5]
-        while new_id in self.connections:
+        while new_id in self.clients:
             if tries > 5: return None
             new_id = str(uuid.uuid4().fields[-1])[:5]
             tries += 1
@@ -163,7 +127,7 @@ class MachineState:
         conn_id = self.new_id()
 
         cc = ClientConnection(conn_id, sock)
-        self.connections[conn_id] = cc
+        self.clients[conn_id] = cc
 
         # handshake + main loop
         cc.handshake()
@@ -175,18 +139,22 @@ class ClientState:
     def __init__(self, **kwargs):
         self.name = kwargs.get('name')
         self.sock = None
+        self.id = None
 
     def connect(self, ip):
         self.sock = socket.socket()
-        self.sock.connect((HOST, libcoffee.PORT))
-        self.do_handshake(self)
+        self.sock.connect((ip, PORT))
+
+        self.do_handshake()
 
     def do_handshake(self):
         # first, wait for HELLO
         data = recv_op(self.sock, OP_HELLO)
-        if data['op'] == OP_HELLO:
-            logger.info("[handshake:%s] HELLO payload: %.2f", \
-                self.id, data['_timestamp'])
+
+        self.id = data['id']
+
+        logger.info("[handshake:%s] HELLO payload: %.2f", \
+            self.id, data['_timestamp'])
 
         # send HELLO_ACK
         send_op(self.sock, OP_HELLO_ACK, {
