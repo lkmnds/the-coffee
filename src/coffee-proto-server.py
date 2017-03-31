@@ -4,37 +4,37 @@ import datetime
 import threading
 import logging
 
-import libcoffee
+import libcoffee2 as libcoffee
 
 logging.basicConfig(level=logging.DEBUG,
                     format='[%(levelname)s] (%(threadName)-10s) %(message)s',
                     )
 
-VERSION = '0.0.2'
+VERSION = '0.0.3'
 
 HOST = 'localhost'
 CLISIZE = 3
 
 threads = []
-global_state = libcoffee.MachineState('example_brewer', '123')
+machine = libcoffee.MachineState(name='example_machine', \
+    default_user=('someone', '123'))
 
 def new_client(cli, sock):
     global global_state
     logging.debug("New thread")
 
-    bs = libcoffee.ser_handshake(sock, global_state)
-    while bs.parse_msg():
-        pass
+    machine.new_client(sock)
 
     logging.debug("Exiting thread")
 
 def main():
     global threads
 
-    print("coffee client v%s" % VERSION)
+    print("coffee server v%s" % VERSION)
     s = socket.socket()
     s.bind((HOST, libcoffee.PORT))
     s.listen(CLISIZE)
+
     try:
         while True:
             con, cli = s.accept()
