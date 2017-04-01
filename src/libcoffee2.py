@@ -309,6 +309,12 @@ class ClientState:
         logger.info('[auth:%s] Operation %d not found', self.id, op)
         return False
 
+    def get_drinks(self):
+        send_op(self.sock, OP_GET_AVAILABLE, {})
+        data = recv_op(self.sock, OP_AVAILABLE_DRINKS)
+
+        return data['drinks']
+
     def close(self):
         logger.info("[client:%s] closing", self.id)
 

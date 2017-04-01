@@ -33,6 +33,9 @@ def main(args):
     delta = (t2 - t1) * 1000
     print("Ping: %.2fms" % delta)
 
+    drinks = cs.get_drinks()
+    print('drinks', drinks)
+
     cs.close()
     return 0
 
