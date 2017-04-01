@@ -59,7 +59,7 @@ OP_GET_DRINK_DATA = 21
 OP_INVALID_DRINK = 22
 OP_DRINK_DATA = 23
 
-OP_QUEUE_DRINK = 24
+OP_DO_DRINK = 24
 OP_STARTING_DRINK = 25
 OP_DRINK_FAIL = 26
 OP_DRINK_DONE = 27
@@ -172,13 +172,13 @@ class ClientConnection:
         return True
 
     def do_drink(self, data):
-        name = data['name']
+        drink_name = data['name']
         if drink_name not in self.ms.drinks:
             send_op(self.sock, OP_INVALID_DRINK, {})
 
         send_op(self.sock, OP_STARTING_DRINK, {})
 
-        res = self.ms.drinks[name](self)
+        res = self.ms.drinks[drink_name](self)
 
         if not res:
             send_op(self.sock, OP_DRINK_FAIL, {})
@@ -314,6 +314,35 @@ class ClientState:
         data = recv_op(self.sock, OP_AVAILABLE_DRINKS)
 
         return data['drinks']
+
+    def do_drink(self, name):
+        send_op(self.sock, OP_DO_DRINK, {
+            'name': name
+        })
+
+        starting = recv_op(self.sock)
+        if starting['op'] == OP_INVALID_DRINK:
+            logger.error('[client:%s] Invalid drink %s', self.id, name)
+            return False
+        elif starting['op'] == OP_STARTING_DRINK:
+            logger.debug('[client:%s] Received OP_STARTING_DRINK', self.id)
+        else:
+            logger.error('[client:%s] Expected STARTING_DRINK, got %d', \
+                self.id, starting['op'])
+            return False
+
+        drink_status = recv_op(self.sock)
+
+        if drink_status['op'] == OP_DRINK_FAIL:
+            logger.error('[client:%s] Failed drink', self.id)
+            return False
+        elif drink_status['op'] == OP_DRINK_DONE:
+            logger.debug('[client:%s] Received OP_DRINK_DONE', self.id)
+        else:
+            logger.error('[client:%s] Expected OP_DRINK_DONE, got %d', \
+                self.id, starting['op'])
+            return False
+        return True
 
     def close(self):
         logger.info("[client:%s] closing", self.id)

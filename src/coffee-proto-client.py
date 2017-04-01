@@ -36,6 +36,14 @@ def main(args):
     drinks = cs.get_drinks()
     print('drinks', drinks)
 
+    done = cs.do_drink('coffee')
+    if not done:
+        print('Error requesting drink to the Machine')
+        cs.close()
+        return 1
+
+    print('Made drink!')
+
     cs.close()
     return 0
 
