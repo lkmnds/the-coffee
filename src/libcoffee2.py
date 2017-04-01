@@ -116,9 +116,7 @@ class ClientConnection:
         self.operations = {
             OP_PING: self.do_ping,
             OP_AUTHENTICATE: self.do_auth,
-
             OP_GET_AVAILABLE: self.get_available,
-
             OP_DO_DRINK: self.do_drink,
         }
 
@@ -175,11 +173,12 @@ class ClientConnection:
         drink_name = data['name']
         if drink_name not in self.ms.drinks:
             send_op(self.sock, OP_INVALID_DRINK, {})
+            return True
 
         send_op(self.sock, OP_STARTING_DRINK, {})
+        logger.info('[client:%s] Requesting drink %s', self.id, drink_name)
 
         res = self.ms.drinks[drink_name](self)
-
         if not res:
             send_op(self.sock, OP_DRINK_FAIL, {})
             return True
@@ -267,18 +266,18 @@ class ClientState:
     def do_handshake(self):
         # first, wait for HELLO
         data = recv_op(self.sock, OP_HELLO)
-
         self.id = data['id']
-
-        logger.info("[handshake:%s] HELLO payload: %.2f", \
-            self.id, data['_timestamp'])
 
         # send HELLO_ACK
         send_op(self.sock, OP_HELLO_ACK, {
             'id': self.id,
         })
 
-        return time.time() - data['_timestamp']
+        delta = time.time() - data['_timestamp']
+        logger.info("[handshake:%s] HELLO + HELLO_ACK done in %.2fms", \
+            self.id, delta * 1000)
+
+        return delta
 
     def ping(self):
         logger.debug('[client:%s] send OP_PING', self.id)
@@ -298,21 +297,21 @@ class ClientState:
         op = data['op']
 
         if op == OP_AUTH_NOT_NEEDED:
-            logger.debug('[auth:%s] authentication not needed', self.id)
+            logger.info('[auth:%s] authentication not needed', self.id)
             return True
         elif op == OP_AUTH_FAILURE:
-            logger.debug('[auth:%s] Failure to authenticate', self.id)
+            logger.error('[auth:%s] Failure to authenticate', self.id)
             return False
         elif op == OP_AUTH_SUCCESS:
+            logger.info('[auth:%s] Authenticated as %r', self.id, user)
             return True
 
-        logger.info('[auth:%s] Operation %d not found', self.id, op)
+        logger.error('[auth:%s] Operation %d not found', self.id, op)
         return False
 
     def get_drinks(self):
         send_op(self.sock, OP_GET_AVAILABLE, {})
         data = recv_op(self.sock, OP_AVAILABLE_DRINKS)
-
         return data['drinks']
 
     def do_drink(self, name):
