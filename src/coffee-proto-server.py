@@ -15,9 +15,15 @@ VERSION = '0.0.3'
 HOST = 'localhost'
 CLISIZE = 3
 
+def do_coffee(cc):
+    print("making coffee")
+    return True
+
 threads = []
 machine = libcoffee.MachineState(name='example_machine', \
-    default_user=('user', 'pwd'))
+    default_user=('user', 'pwd'), drinks={
+        'coffee': do_coffee,
+    })
 
 def new_client(cli, sock):
     global global_state

@@ -52,8 +52,21 @@ OP_AUTH_NOT_NEEDED = 16
 OP_AUTH_SUCCESS = 17
 OP_AUTH_FAILURE = 18
 
-OP_WRONG_DATA = 20
-OP_CLOSE = 30
+OP_GET_AVAILABLE = 20
+OP_AVAILABLE_DRINKS = 21
+
+OP_GET_DRINK_DATA = 21
+OP_INVALID_DRINK = 22
+OP_DRINK_DATA = 23
+
+OP_QUEUE_DRINK = 24
+OP_STARTING_DRINK = 25
+OP_DRINK_FAIL = 26
+OP_DRINK_DONE = 27
+
+OP_WRONG_DATA = 30
+OP_CLOSE = 40
+OP_MISC = 50
 
 def send_op(sock, op, data):
     payload = {'op': op}
@@ -88,6 +101,13 @@ def constant_compare(val1, val2):
 
 logger = logging.getLogger('coffee')
 
+def Drink(*args):
+    return {
+        'name': args[0],
+        'id': args[1],
+        'func': args[2]
+    }
+
 class ClientConnection:
     def __init__(self, conn_id, sock, ms):
         self.id = conn_id
@@ -96,6 +116,10 @@ class ClientConnection:
         self.operations = {
             OP_PING: self.do_ping,
             OP_AUTHENTICATE: self.do_auth,
+
+            OP_GET_AVAILABLE: self.get_available,
+
+            OP_DO_DRINK: self.do_drink,
         }
 
     def handshake(self):
@@ -141,6 +165,28 @@ class ClientConnection:
         send_op(self.sock, OP_AUTH_SUCCESS, {})
         return True
 
+    def get_available(self, data):
+        send_op(self.sock, OP_AVAILABLE_DRINKS, {
+            'drinks': [k for k in self.ms.drinks],
+        })
+        return True
+
+    def do_drink(self, data):
+        name = data['name']
+        if drink_name not in self.ms.drinks:
+            send_op(self.sock, OP_INVALID_DRINK, {})
+
+        send_op(self.sock, OP_STARTING_DRINK, {})
+
+        res = self.ms.drinks[name](self)
+
+        if not res:
+            send_op(self.sock, OP_DRINK_FAIL, {})
+            return True
+
+        send_op(self.sock, OP_DRINK_DONE, {})
+        return True
+
     def recv(self):
         data = recv_op(self.sock)
 
@@ -178,6 +224,7 @@ class MachineState:
         if self.default_user is None:
             self.auth_required = False
 
+        self.drinks = kwargs.get('drinks', {})
         self.clients = {}
 
     def new_id(self):
