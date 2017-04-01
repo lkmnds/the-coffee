@@ -17,7 +17,7 @@ CLISIZE = 3
 
 threads = []
 machine = libcoffee.MachineState(name='example_machine', \
-    default_user=('someone', '123'))
+    default_user=('user', 'pwd'))
 
 def new_client(cli, sock):
     global global_state

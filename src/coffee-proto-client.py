@@ -1,5 +1,6 @@
 import libcoffee2 as libcoffee
 import socket
+import time
 
 import logging
 logging.basicConfig(level=logging.DEBUG,
@@ -15,6 +16,17 @@ def main():
     print("coffee client v%s" % VERSION)
 
     cs.connect(HOST)
+
+    user = input('user: ')
+    password = input('pass: ')
+    cs.authenticate(user, password)
+
+    t1 = time.monotonic()
+    cs.ping()
+    t2 = time.monotonic()
+    delta = (t2 - t1) * 1000
+    print("Ping: %.2fms" % delta)
+
     cs.close()
 
 if __name__ == '__main__':

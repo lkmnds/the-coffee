@@ -46,6 +46,12 @@ OP_HELLO_ACK = 11
 OP_PING = 12
 OP_PING_ACK = 13
 
+# authentication
+OP_AUTHENTICATE = 15
+OP_AUTH_NOT_NEEDED = 16
+OP_AUTH_SUCCESS = 17
+OP_AUTH_FAILURE = 18
+
 OP_WRONG_DATA = 20
 OP_CLOSE = 30
 
@@ -83,9 +89,14 @@ def constant_compare(val1, val2):
 logger = logging.getLogger('coffee')
 
 class ClientConnection:
-    def __init__(self, conn_id, sock):
+    def __init__(self, conn_id, sock, ms):
         self.id = conn_id
         self.sock = sock
+        self.ms = ms
+        self.operations = {
+            OP_PING: self.do_ping,
+            OP_AUTHENTICATE: self.do_auth,
+        }
 
     def handshake(self):
         hello_timestamp = time.time()
@@ -105,6 +116,30 @@ class ClientConnection:
 
         return delta
 
+    def do_ping(self, data):
+        send_op(self.sock, OP_PING_ACK, {})
+        return True
+
+    def do_auth(self, data):
+        if not self.ms.auth_required:
+            send_op(self.sock, OP_AUTH_NOT_NEEDED, {})
+            return True
+
+        user = data['user']
+        password = data['password']
+
+        if not constant_compare(user, self.default_user[0]):
+            send_op(self.sock, OP_AUTH_FAILURE, {})
+            return True
+
+        if not constant_compare(password, self.default_user[1]):
+            send_op(self.sock, OP_AUTH_FAILURE, {})
+            return True
+
+        self.authenticated = True
+        send_op(self.sock, OP_AUTH_SUCCESS, {})
+        return True
+
     def recv(self):
         data = recv_op(self.sock)
 
@@ -113,8 +148,18 @@ class ClientConnection:
             send_op(self.sock, OP_CLOSE, {})
             self.sock.close()
             return False
-        elif data['op'] == OP_IDENTIFY:
-            pass
+        else:
+            op = data['op']
+            if op in self.operations:
+                func = self.operations[op]
+                return self.func(data)
+            else:
+                logger.info('[recv:%s] Invalid operator code', self.id)
+                send_op(self.sock, OP_WRONG_DATA, {
+                    'unhandled': op
+                })
+                self.sock.close()
+                return False
 
         time.sleep(1)
         return True
@@ -148,7 +193,7 @@ class MachineState:
     def new_client(self, sock):
         conn_id = self.new_id()
 
-        cc = ClientConnection(conn_id, sock)
+        cc = ClientConnection(conn_id, sock, self)
         self.clients[conn_id] = cc
 
         # handshake + main loop
@@ -156,6 +201,9 @@ class MachineState:
 
         while cc.recv():
             pass
+
+        # if the loop ended, remove the ClientConnection
+        del self.clients[conn_id]
 
 class ClientState:
     def __init__(self, **kwargs):
@@ -181,10 +229,38 @@ class ClientState:
         # send HELLO_ACK
         send_op(self.sock, OP_HELLO_ACK, {
             'id': self.id,
-            '_timestamp': time.time(),
         })
 
         return time.time() - data['_timestamp']
+
+    def ping(self):
+        logger.debug('[client:%s] send OP_PING', self.id)
+
+        send_op(self.sock, OP_PING, {})
+        recv_op(self.sock, OP_PING_ACK)
+
+        return True
+
+    def authenticate(self, user, password):
+        send_op(self.sock, OP_AUTHENTICATE, {
+            'user': user,
+            'password': password,
+        })
+
+        data = recv_op(self.sock)
+        op = data['op']
+
+        if op == OP_AUTH_NOT_NEEDED:
+            logger.debug('[auth:%s] authentication not needed', self.id)
+            return True
+        elif op == OP_AUTH_FAILURE:
+            logger.debug('[auth:%s] Failure to authenticate', self.id)
+            return False
+        elif op == OP_AUTH_SUCCESS:
+            return True
+
+        logger.info('[auth:%s] Operation %d not found', self.id, op)
+        return False
 
     def close(self):
         logger.info("[client:%s] closing", self.id)
