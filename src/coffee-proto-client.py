@@ -1,4 +1,4 @@
-import libcoffee2 as libcoffee
+import libcoffee
 import socket
 import time
 import sys
