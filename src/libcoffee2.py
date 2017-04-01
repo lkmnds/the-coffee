@@ -128,14 +128,15 @@ class ClientConnection:
         user = data['user']
         password = data['password']
 
-        if not constant_compare(user, self.default_user[0]):
+        if not constant_compare(user, self.ms.default_user[0]):
             send_op(self.sock, OP_AUTH_FAILURE, {})
             return True
 
-        if not constant_compare(password, self.default_user[1]):
+        if not constant_compare(password, self.ms.default_user[1]):
             send_op(self.sock, OP_AUTH_FAILURE, {})
             return True
 
+        logger.info('[client:%s] Authenticated as user %r', self.id, user)
         self.authenticated = True
         send_op(self.sock, OP_AUTH_SUCCESS, {})
         return True
@@ -151,8 +152,7 @@ class ClientConnection:
         else:
             op = data['op']
             if op in self.operations:
-                func = self.operations[op]
-                return self.func(data)
+                return self.operations[op](data)
             else:
                 logger.info('[recv:%s] Invalid operator code', self.id)
                 send_op(self.sock, OP_WRONG_DATA, {
@@ -171,11 +171,11 @@ class ClientConnection:
 
 class MachineState:
     def __init__(self, **kwargs):
-        name = kwargs.get('name')
-        default_user = kwargs.get('default_user')
+        self.name = kwargs.get('name')
+        self.default_user = kwargs.get('default_user')
 
         self.auth_required = True
-        if default_user is None:
+        if self.default_user is None:
             self.auth_required = False
 
         self.clients = {}

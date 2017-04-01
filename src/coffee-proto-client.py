@@ -1,6 +1,7 @@
 import libcoffee2 as libcoffee
 import socket
 import time
+import sys
 
 import logging
 logging.basicConfig(level=logging.DEBUG,
@@ -12,14 +13,19 @@ HOST = 'localhost'
 
 cs = libcoffee.ClientState(name='ExampleClient')
 
-def main():
+def main(args):
     print("coffee client v%s" % VERSION)
 
     cs.connect(HOST)
 
     user = input('user: ')
     password = input('pass: ')
-    cs.authenticate(user, password)
+    done = cs.authenticate(user, password)
+
+    if not done:
+        print('Error authenticating to the Coffee Machine')
+        cs.close()
+        return 0
 
     t1 = time.monotonic()
     cs.ping()
@@ -28,6 +34,7 @@ def main():
     print("Ping: %.2fms" % delta)
 
     cs.close()
+    return 0
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main(sys.argv))
